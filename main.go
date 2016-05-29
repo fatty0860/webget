@@ -1,71 +1,41 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"time"
+)
 
 func main() {
-	var stkAry = []string{"2330", "2062", "2311", ""}
-	var d StockRespose
-	var o StockInfoResponse
-
-	for _, text := range stkAry {
-		QryStock(text, &d)
-
-		fmt.Printf("msg : %s %s\n", d.RtnCode, d.RtnMessage)
-		if d.RtnCode == "0000" && len(d.Info) > 0 {
-			fmt.Printf("%s, %s, %s\n", d.Info[0].StkKey, d.Info[0].LowerPrice, d.Info[0].UpperPrice)
-
-			QryStkInfo(d.Info[0].StkKey, &o)
-			fmt.Printf("%s\n", o.RtnCode)
-		}
-
+	var netClient = &http.Client{
+		Timeout: time.Second * 5,
 	}
 
-	/*
-		QryStkInfo("tse_2330.tw", &info)
-		if info.RtnCode == "0000" && len(info.Info) > 0 {
-			fmt.Printf("%v\n", info.Info[0])
-		}
-	*/
-}
-
-/*
-func main() {
-	var url string
-	var err error
-	//var data []byte
-	var resp *http.Response
-	var token *html.Tokenizer
-	var tp html.TokenType
-	var tptk html.Token
-
-	url = "http://mis.twse.com.tw/stock/fibest.jsp?stock=2330"
-	resp, err = http.Get(url)
+	//rep, err := netClient.Get("http://mis.twse.com.tw/stock/fibest.jsp")
+	rep, err := netClient.Get("http://mis.twse.com.tw/stock/")
 	if err != nil {
-		fmt.Printf("http get error : %s\n", err.Error())
+		fmt.Printf("%v\n", err)
 		return
 	}
-	defer resp.Body.Close()
 
-	//data, _ = ioutil.ReadAll(resp.Body)
-	//fmt.Printf("%v\n", string(data))
+	req, _ := http.NewRequest("GET", "http://mis.twse.com.tw/stock/api/getStockInfo.jsp?ex_ch=tse_1101.tw|tse_2330.tw&json=1&delay=0&d=20160526", nil)
 
-	token = html.NewTokenizer(resp.Body)
+	cookies := rep.Cookies()
+	for _, c := range cookies {
+		//h, m, s := c.Expires.Clock()
+		//fmt.Printf("%s = %s  [%d:%d:%d]\n", c.Name, c.Value, h, m, s)
+		fmt.Printf("%v\n", c)
 
-	for {
-		tp = token.Next()
-		switch {
-		case tp == html.ErrorToken:
-			return
-		case tp == html.StartTagToken:
-			tptk = token.Token()
-			if tptk.Data == "a" {
-				fmt.Printf("------------\n")
-				for _, attr := range tptk.Attr {
-					fmt.Printf("%s, %s, %s\n", attr.Namespace, attr.Key, attr.Val)
-				}
-			}
-		}
+		req.AddCookie(c)
 	}
 
+	r, err2 := netClient.Do(req)
+	if err2 != nil {
+		fmt.Printf("%v\n", err2)
+		return
+	}
+	data, _ := ioutil.ReadAll(r.Body)
+	fmt.Printf("data : %v\n", string(data))
+
 }
-*/

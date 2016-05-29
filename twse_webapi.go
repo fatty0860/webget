@@ -5,11 +5,15 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"time"
 )
 
 const (
 	//TwseAPIBase : Twse api url
-	TwseAPIBase = "http://mis.twse.com.tw/stock/api"
+	TwseMISWeb           = "http://mis.twse.com.tw/"
+	TwseAPIBase          = "http://mis.twse.com.tw/stock/api"
+	TwseAPI_GetStock     = "getStock.jsp"
+	TwseAPI_GetStockInfo = "getStockInfo.jsp"
 )
 
 //Stock : TWSE 商品基本資料結構
@@ -88,23 +92,44 @@ type StockInfoResponse struct {
 	UserDelay  string      `json:"userDelay"`
 }
 
+// TwseStkHdl : 證交所資訊網站連線物件
+type TwseStkHdl struct {
+	Client  *http.Client
+	Timeout time.Duration
+	cookie  *[]http.Cookie
+}
+
+func (hdl *TwseStkHdl) Init(TimeoutSec time.Duration) {
+	hdl.Client = &http.Client{
+		Timeout: time.Second * TimeoutSec,
+	}
+}
+
 // QryStock : 查詢 商品資料
 // http://mis.twse.com.tw/stock/api/getStock.jsp?ch=2330.tw&json=1
-func QryStock(sym string, rep *StockRespose) bool {
-	var url string
-	url = fmt.Sprintf("%s/getStock.jsp?ch=%s.tw&json=1", TwseAPIBase, sym)
+func (hdl *TwseStkHdl) QryStock(sym string) (err error, rep StockRespose) {
+	var url string = fmt.Sprintf("%s/%s?ch=%s.tw&json=1", TwseAPIBase, TwseAPI_GetStock, sym)
+	var request *http.Request
+	var response *http.Response
+	var data []byte
 
-	resp, err := http.Get(url)
+	request, err = http.NewRequest("GET", url, nil)
 	if err != nil {
-		fmt.Printf("http get error : %s\n", err.Error())
-		return false
+		return
 	}
-	defer resp.Body.Close()
 
-	data, _ := ioutil.ReadAll(resp.Body)
+	response, err = hdl.Client.Do(request)
+
+	if err != nil {
+		//fmt.Printf("http get error : %s\n", err.Error())
+		return
+	}
+	defer response.Body.Close()
+
+	data, err = ioutil.ReadAll(response.Body)
 	json.Unmarshal([]byte(data), rep)
 
-	return true
+	return
 }
 
 //QryStkInfo : 查詢商品報價資料
